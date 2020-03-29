@@ -3,7 +3,13 @@ var myObstacles = [];
 var myScore;
 var roundsPlayed;
 // flappy
-function component(width, height, color, x, y, type) {
+function component(id, width, height, color, x, y, type) {
+  this.type = type;
+  if (type == "image") {
+    this.image = new Image();
+    this.image.src = color;
+  }
+  this.id = id;
   this.width = width;
   this.height = height;
   this.speedX = 0;
@@ -12,7 +18,6 @@ function component(width, height, color, x, y, type) {
   this.y = y;
   this.gravity = 0;
   this.gravitySpeed = 0;
-  this.type = type;
   this.score = 0;
   this.round = 0;
   this.jumpMultiplier = 0;
@@ -22,6 +27,11 @@ function component(width, height, color, x, y, type) {
       ctx.font = this.width + " " + this.height;
       ctx.fillStyle = color;
       ctx.fillText(this.text, this.x, this.y);
+    } else if (type == "image") {
+      ctx.drawImage(this.image,
+        this.x,
+        this.y,
+        this.width, this.height);
     } else {
       ctx.fillStyle = color;
       ctx.fillRect(this.x, this.y, this.width, this.height);
@@ -63,37 +73,44 @@ function component(width, height, color, x, y, type) {
 }
 
 function startGame() {
-  myGamePiece = new component(30, 30, "red", 100, 120);
+  myGamePiece = new component("agent", 40, 30, "images/bird.png", 100, 120, "image");
   myGamePiece.gravitySpeed = 4.5;
   myGamePiece.jumpMultiplier = 4.0;
   myGamePiece.gravity = 0;
-  myScore = new component("30px", "Consolas", "black", 280, 40, "text");
-  roundsPlayed = new component("30px", "Consolas", "black", 280, 70, "text");
+  myScore = new component("text", "20px", "Roboto", "white", 280, 40, "text");
+  roundsPlayed = new component("text", "20px", "Roboto", "white", 280, 70, "text");
   myGameArea.start();
 }
 
 let myGameArea = {
   canvas: document.createElement("canvas"),
   start: function() {
-    // var background = new Image();
-
-    // Make sure the image is loaded first otherwise nothing will draw.
-    // background.onload = function(){
-    //     this.canvas.drawImage(background,0,0);
-    // }
-
-    this.canvas.width = 480;
+    this.canvas.width = 400;
     this.canvas.height = 270;
     this.context = this.canvas.getContext("2d");
     var background = new Image();
+    var bottomBar = new Image();
+    var topBar = new Image();
+    var bird = new Image();
+
     background.src = "images/bg.png";
-    this.context.drawImage(background,0,0);
+    bottomBar.src = "images/bp.png";
+    topBar.src = "images/tp.png";
+    bird.src = "images/bird.png";
+
+    background.onload = () => {
+      this.context.drawImage(background,0,0, this.canvas.width, this.canvas.height);
+    }
+
     document.body.insertBefore(this.canvas, document.body.childNodes[0]);
     this.frameNo = 0;
     this.interval = setInterval(updateGameArea, 20);
   },
   clear: function() {
     this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    var background = new Image();
+    background.src = "images/bg.png";
+    this.context.drawImage(background,0,0, this.canvas.width, this.canvas.height);
   },
   reset: () => {
     myGamePiece.y = 120;
@@ -125,8 +142,8 @@ function updateGameArea() {
   if (myGameArea.frameNo == 1 || everyinterval(intervalVal)) {
     x = myGameArea.canvas.width;
     height = Math.floor(Math.random() * (maxHeight - minHeight + 1) + minHeight);
-    myObstacles.push(new component(40, height, "green", x, 0));
-    myObstacles.push(new component(40, x - height - gapHeight, "green", x, height + gapHeight));
+    myObstacles.push(new component("tbar", 40, height, "images/tp.png", x, 0, "image"));
+    myObstacles.push(new component("bbar", 40, x - height - gapHeight, "images/bp.png", x, height + gapHeight, "image"));
   }
   let t = true;
   for (let i = 0; i < myObstacles.length; i++) {
