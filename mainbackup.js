@@ -1,6 +1,5 @@
 var myGamePiece;
 var myObstacles = [];
-var deadObstacles = [];
 var myScore;
 var roundsPlayed;
 var paused = false;
@@ -37,7 +36,7 @@ class component {
     this.score = 0;
     this.round = 0;
     this.jumpMultiplier = 0;
-    this.obsticalPosition = 0;
+    this.passedPlayer = false;
   }
   update() {
     let ctx = myGameArea.context;
@@ -117,7 +116,7 @@ let myGameArea = {
     }
     document.body.insertBefore(this.canvas, document.body.childNodes[0]);
     this.frameNo = 0;
-    this.interval = setInterval(updateGameArea, 20);
+    this.interval = setInterval(updateGameArea, 200);
   },
   clear: function() {
     this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -129,7 +128,6 @@ let myGameArea = {
     myGamePiece.y = 120;
     myGamePiece.score = 0;
     myObstacles = [];
-    deadObstacles = [];
     myGamePiece.round++;
     myGameArea.frameNo = 0;
   }
@@ -174,47 +172,53 @@ function updateGameArea() {
 
 
   for (let i = 0; i < myObstacles.length; i+=2) {
-
-    // edge case to see if out of bounds, remove from array
-    if (myObstacles[i].x + myObstacles[i].width == myGamePiece.x) {
-      // deadObstacles.push(myObstacles[i]) // add to passed array
-      myGamePiece.score++;
-      deadObstacles.push(new component("tbar", 40, myObstacles[i].height, "images/tp.png", myObstacles[i].x, myObstacles[i].y, "image"));
-      deadObstacles.push(new component("bbar", 40, myObstacles[i+1].height, "images/bp.png", myObstacles[i].x, myObstacles[i+1].y, "image"));
-      myObstacles.splice(0, 2); // remove from obs array not passed
-      // get next values in queue
-      myGamePiece.optimalStateTop = myObstacles[i].height;
-      myGamePiece.optimalStateBottom = myObstacles[i+1].height;
-      myGamePiece.distToTopBar_y = myGamePiece.distToCeil - myGamePiece.optimalStateTop;
-      myGamePiece.distToBottomBar_y = myGamePiece.distToFloor - myGamePiece.optimalStateBottom;
-      myGamePiece.env_y_obs_min = myGamePiece.optimalStateTop;
-      myGamePiece.env_y_obs_max = myGamePiece.env_y_max - myGamePiece.optimalStateBottom;
-    }
-
     myObstacles[i].x += obsticalSpeedX;
     myObstacles[i+1].x += obsticalSpeedX;
+
+    // edge case to see if out of bounds, remove from array
+    if (myObstacles[i].x + myObstacles[i].width < 0) {
+      myObstacles.splice(0, 2);
+    }
+
+    // console.log(`${myObstacles[i].x} ${myGamePiece.x}`);
+    if (myObstacles[i].x + myObstacles[i].width == myGamePiece.x) {
+      myGamePiece.score++;
+      myObstacles[i+1].passedPlayer = true;
+      myObstacles[i].passedPlayer = true;
+    }
+    if (myObstacles[myObstacles.length-2].x + myObstacles[myObstacles.length-2].width < myGamePiece.x) { // get Y distance to the next top and bottom pipes
+      // console.log("pass");
+      myGamePiece.optimalStateTop = myObstacles[myObstacles.length-2].height;
+      myGamePiece.optimalStateBottom = myObstacles[myObstacles.length-1].height;
+      myGamePiece.distToTopBar_y = myGamePiece.distToCeil - myGamePiece.optimalStateTop;
+      myGamePiece.distToBottomBar_y = myGamePiece.distToFloor - myGamePiece.optimalStateBottom;
+
+      myGamePiece.env_y_obs_min = myGamePiece.optimalStateTop;
+      myGamePiece.env_y_obs_max = myGamePiece.env_y_max - myGamePiece.optimalStateBottom;
+      balls = "dick"
+      // console.log('-----------------------');
+      // console.log(`env_y_obs_min: ${myGamePiece.env_y_obs_min}`);
+      // console.log(`env_y_obs_max: ${myGamePiece.env_y_obs_max}`);
+    }
     myObstacles[i].update();
     myObstacles[i+1].update();
-
-    if (deadObstacles.length !== 0) {
-      deadObstacles[i].x += obsticalSpeedX;
-      deadObstacles[i+1].x += obsticalSpeedX;
-      deadObstacles[i].update();
-      deadObstacles[i+1].update();
-      if (deadObstacles[i].x + deadObstacles[i].width < 0) {
-        deadObstacles.splice(0, 2);
-      }
-    }
   }
-
   console.log('-----------------------');
   console.log(`env_y_obs_min: ${myGamePiece.env_y_obs_min}`);
   console.log(`env_y_obs_max: ${myGamePiece.env_y_obs_max}`);
+  console.log(balls);
   if (myGamePiece.distToBottomBar_y < 10) {
     // console.time();
     moveup();
     // console.timeEnd();
   }
+
+  // console.log(myGamePiece.optimalStateTop);
+  // console.log(myGamePiece.optimalStateBottom);
+  // console.log(`top ${myGamePiece.distToTopBar_y}`);
+  // console.log(`bottom ${myGamePiece.distToBottomBar_y}`);
+
+
 
   myScore.text = "SCORE: " + myGamePiece.score;
   roundsPlayed.text = "ROUND: " + myGamePiece.round;
