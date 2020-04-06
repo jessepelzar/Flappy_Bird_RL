@@ -4,6 +4,7 @@ var deadObstacles = [];
 var myScore;
 var roundsPlayed;
 var paused = false;
+var numStates = 60;
 // flappy
 class component {
   constructor(id, width, height, color, x, y, type) {
@@ -21,15 +22,20 @@ class component {
     this.x = x;
     this.y = y;
 
+    this.obsticalSpeedX = -2.5;
     this.env_y_min = 0;
-    this.env_y_max = 270;
+    this.env_y_max = 300;
     this.env_y_obs_min = 0;
     this.env_y_obs_max = 0;
+    this.minHeight = 50;
+    this.maxHeight = 115;
+    this.gapHeight = 135;
+    this.intervalVal = 100;
 
     this.distToCeil = 0;
     this.distToFloor = 0;
-    this.distToTopBar_y = 0;
-    this.distToBottomBar_y = 0;
+    this.deltaTopBar = 0;
+    this.deltaBottomBar = 0;
     this.optimalStateTop = 0;
     this.optimalStateBottom = 0;
     this.gravity = 0;
@@ -38,6 +44,11 @@ class component {
     this.round = 0;
     this.jumpMultiplier = 0;
     this.obsticalPosition = 0;
+
+    this.action = false;
+    this.reward = 0;
+    this.totalReward = 0;
+    this.done = false;
   }
   update() {
     let ctx = myGameArea.context;
@@ -108,7 +119,7 @@ let myGameArea = {
   canvas: document.createElement("canvas"),
   start: function() {
     this.canvas.width = 400;
-    this.canvas.height = 270;
+    this.canvas.height = myGamePiece.env_y_max;
     this.context = this.canvas.getContext("2d");
     var background = new Image();
     background.src = "images/bg.png";
@@ -117,7 +128,7 @@ let myGameArea = {
     }
     document.body.insertBefore(this.canvas, document.body.childNodes[0]);
     this.frameNo = 0;
-    this.interval = setInterval(updateGameArea, 20);
+    main();
   },
   clear: function() {
     this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -135,46 +146,126 @@ let myGameArea = {
   }
 }
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+Number.prototype.map = function(in_min, in_max, out_min, out_max) {
+  return (this - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
+function toState(stateTop, stateBottom) {
+  let env_dy = myGameArea.canvas.height / numStates;
+  let topDy = parseInt(stateTop / env_dy);
+  let bottomDy = parseInt(stateBottom / env_dy);
+  let agentY = parseInt(myGamePiece.y);
+
+  // console.log(`Top dY: ${topDy}`);
+  // console.log(`Bottom dY: ${bottomDy}`);
+  // console.log(`optimalStateBottom: ${myGamePiece.optimalStateBottom - myGamePiece.optimalStateTop}`);
+  var num = myGamePiece.optimalStateBottom - myGamePiece.optimalStateTop;
+  var val = Math.floor(num.map(myGamePiece.minHeight - myGamePiece.maxHeight, myGamePiece.maxHeight - myGamePiece.minHeight, 0, numStates-1));
+  var agentval = Math.floor(myGamePiece.y.map(0, myGamePiece.env_y_max-myGamePiece.height, 0, numStates-1));
+  // console.log(`val: ${val}`);
+  // console.log(`agent val: ${agentval}`);
+  //
+  // console.log("-------------");
+  return {val, agentval};
+}
+
+async function main() {
+  let episodes = 100000;
+  let eps = 0.02;
+  let initial_lr = 1.0;
+  let min_lr = 0.003;
+  let gamma = 1.0;
+  // setInterval(updateGameArea, 20);
+
+  var q_table = Array(numStates).fill().map( () => Array(numStates).fill().map( () => Array(2).fill(0)));
+
+  for (let i = 0; i < episodes; i++) {
+    myGamePiece.totalReward = 0;
+    let eta = Math.max(min_lr, initial_lr * (Math.pow(0.85, (Math.floor(i/100)))));
+    // console.log(`deltaTopBar: ${myGamePiece.deltaTopBar}`);
+    // console.log(`deltaBottomBar: ${myGamePiece.deltaBottomBar}`);
+    // await sleep(200);
+
+    for (let j = 0; j < 10000; j++) {
+      // console.log(myGamePiece.deltaTopBar);
+      let stateMap = toState(myGamePiece.deltaTopBar, myGamePiece.deltaBottomBar);
+      let a = stateMap.val;
+      let b = stateMap.agentval;
+      // console.log(a);
+      // console.log(b);
+      await sleep(.01);
+      updateGameArea();
+
+      let action = 0;
+      // if (Math.floor(Math.random() * 2)) {
+      if (Math.random() < 0.1) {
+        myGamePiece.action = true;
+        action = 1;
+      } else {
+        myGamePiece.action = false;
+        action = 0;
+      }
+      myGamePiece.totalReward += (Math.pow(gamma, j)) * myGamePiece.reward;
+      let stateMap_n = toState(myGamePiece.deltaTopBar, myGamePiece.deltaBottomBar);
+      let a_n = stateMap.val;
+      let b_n = stateMap.agentval;
+      // console.log(a);
+      // console.log(b);
+      // console.log(a_n);
+      // console.log(b_n);
+      // console.log(q_table[a][b][action]);
+      // console.log(q_table[a_n][b_n][action]);
+      q_table[a][b][action] = q_table[a][b][action] + eta * (myGamePiece.reward + gamma * Math.max(q_table[a_n][b_n]) - q_table[a][b][action]);
+      // if (myGamePiece.done) {
+      //   // reuse policy
+      // }
+      // console.log(`total reward: ${myGamePiece.totalReward}`);
+      // console.log(`action: ${action}`);
+    }
+    if (i % 100 == 0) {
+      console.log(`Iteration ${i+1} -- Total reward = ${myGamePiece.totalReward}`);
+    }
+
+  }
+}
+
 
 function updateGameArea() {
   if (paused) return;
-  var x, height, gap, minHeight, maxHeight, minGap, maxGap, intervalVal, obsticalSpeedX;
-  minHeight = 50;
-  maxHeight = 120;
-  gapHeight = 135;
-  intervalVal = 100;
-  obsticalSpeedX = -2.5;
+
   for (let i = 0; i < myObstacles.length; i++) {
     if (myGamePiece.crashWith(myObstacles[i])) {
+      myGamePiece.totalReward = -1;
       myGameArea.reset();
-      /*Important: need to set penalty before termination*/
+      /* Important: need to set penalty before termination */
       return;
     }
   }
+
   setGamePieceSpeed();
   myGameArea.clear();
   myGameArea.frameNo += 1;
-  if (myGameArea.frameNo == 1 || everyinterval(intervalVal)) {
-    x = myGameArea.canvas.width;
-    y = myGameArea.canvas.height;
-    height = Math.floor(Math.random() * (maxHeight - minHeight + 1) + minHeight);
+
+  if (myGameArea.frameNo == 1 || everyinterval(myGamePiece.intervalVal)) {
+    let x = myGameArea.canvas.width;
+    let y = myGameArea.canvas.height;
+    let height = Math.floor(Math.random() * (myGamePiece.maxHeight - myGamePiece.minHeight + 1) + myGamePiece.minHeight);
     myObstacles.push(new component("tbar", 40, height, "images/tp.png", x, 0, "image"));
-    myObstacles.push(new component("bbar", 40, y - height - gapHeight, "images/bp.png", x, height + gapHeight, "image"));
+    myObstacles.push(new component("bbar", 40, y - height - myGamePiece.gapHeight, "images/bp.png", x, height + myGamePiece.gapHeight, "image"));
   }
-  // if (myGamePiece.score == 0) {
-    myGamePiece.optimalStateTop = myObstacles[0].height;
-    myGamePiece.optimalStateBottom = myObstacles[1].height;
-    myGamePiece.distToTopBar_y = myGamePiece.distToCeil - myObstacles[0].height;
-    myGamePiece.distToBottomBar_y = myGamePiece.distToFloor - myObstacles[1].height;
 
-    myGamePiece.env_y_obs_min = myGamePiece.optimalStateTop;
-    myGamePiece.env_y_obs_max = myGamePiece.env_y_max - myGamePiece.optimalStateBottom;
-    balls = "balls"
-  // }
+  myGamePiece.optimalStateTop = myObstacles[0].height;
+  myGamePiece.optimalStateBottom = myObstacles[1].height;
+  myGamePiece.deltaTopBar = myGamePiece.distToCeil - myObstacles[0].height;
+  myGamePiece.deltaBottomBar = myGamePiece.distToFloor - myObstacles[1].height;
+  myGamePiece.env_y_obs_min = myGamePiece.optimalStateTop;
+  myGamePiece.env_y_obs_max = myGamePiece.env_y_max - myGamePiece.optimalStateBottom;
 
-
-  for (let i = 0; i < myObstacles.length; i+=2) {
-
+  for (let i = 0; i < myObstacles.length; i += 2) {
     // edge case to see if out of bounds, remove from array
     if (myObstacles[i].x + myObstacles[i].width == myGamePiece.x) {
       // deadObstacles.push(myObstacles[i]) // add to passed array
@@ -185,20 +276,22 @@ function updateGameArea() {
       // get next values in queue
       myGamePiece.optimalStateTop = myObstacles[i].height;
       myGamePiece.optimalStateBottom = myObstacles[i+1].height;
-      myGamePiece.distToTopBar_y = myGamePiece.distToCeil - myGamePiece.optimalStateTop;
-      myGamePiece.distToBottomBar_y = myGamePiece.distToFloor - myGamePiece.optimalStateBottom;
+      myGamePiece.deltaTopBar = myGamePiece.distToCeil - myGamePiece.optimalStateTop;
+      myGamePiece.deltaBottomBar = myGamePiece.distToFloor - myGamePiece.optimalStateBottom;
       myGamePiece.env_y_obs_min = myGamePiece.optimalStateTop;
       myGamePiece.env_y_obs_max = myGamePiece.env_y_max - myGamePiece.optimalStateBottom;
+      myGamePiece.done = true;
+      // myGamePiece.totalReward = 0;
     }
 
-    myObstacles[i].x += obsticalSpeedX;
-    myObstacles[i+1].x += obsticalSpeedX;
+    myObstacles[i].x += myGamePiece.obsticalSpeedX;
+    myObstacles[i+1].x += myGamePiece.obsticalSpeedX;
     myObstacles[i].update();
     myObstacles[i+1].update();
 
     if (deadObstacles.length !== 0) {
-      deadObstacles[i].x += obsticalSpeedX;
-      deadObstacles[i+1].x += obsticalSpeedX;
+      deadObstacles[i].x += myGamePiece.obsticalSpeedX;
+      deadObstacles[i+1].x += myGamePiece.obsticalSpeedX;
       deadObstacles[i].update();
       deadObstacles[i+1].update();
       if (deadObstacles[i].x + deadObstacles[i].width < 0) {
@@ -207,13 +300,17 @@ function updateGameArea() {
     }
   }
 
-  console.log('-----------------------');
-  console.log(`env_y_obs_min: ${myGamePiece.env_y_obs_min}`);
-  console.log(`env_y_obs_max: ${myGamePiece.env_y_obs_max}`);
-  if (myGamePiece.distToBottomBar_y < 10) {
-    // console.time();
+  // console.log('-----------------------');
+  // console.log(`env_y_obs_min: ${myGamePiece.env_y_obs_min}`);
+  // console.log(`env_y_obs_max: ${myGamePiece.env_y_obs_max}`);
+  if (myGamePiece.deltaTopBar <= 0 || myGamePiece.deltaBottomBar <= 0) {
+    myGamePiece.reward = -1;
+  } else {
+    myGamePiece.reward = 1;
+  }
+
+  if (myGamePiece.action) {
     moveup();
-    // console.timeEnd();
   }
 
   myScore.text = "SCORE: " + myGamePiece.score;
@@ -222,7 +319,12 @@ function updateGameArea() {
   roundsPlayed.update();
   myGamePiece.newPos();
   myGamePiece.update();
+
+  // console.log(`deltaTopBar: ${myGamePiece.deltaTopBar}`);
+  // console.log(`deltaBottomBar: ${myGamePiece.deltaBottomBar}`);
+
 }
+
 
 function setGamePieceSpeed() {
   if (myGamePiece.speedY > myGamePiece.gravitySpeed) {
@@ -249,11 +351,7 @@ function moveup() {
 
 document.body.onkeyup = function(e) {
   if (e.keyCode == 32) {
-    //your code
-    // console.time();
     moveup();
-    // console.timeEnd();
-
   }
   if (e.keyCode == 13) {
     paused = !paused;
