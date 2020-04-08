@@ -8,16 +8,17 @@ var episode;
 var iteration;
 var paused = false;
 var slow = false;
-var numStates = 80;
+var numStates = 40;
 var rewardExponentialReductionValue = 5;
-var episodes = 10000;
+var episodes = 10;
 var iterations = 10000;
 var gamma = 1.0;
 var alpha = 0.05;
-var explorationRate = 0.1;
+var explorationRate = 0.2;
 var speed = 3;
 var speedUp = 5;
-var speedDown = 1;
+var speedDown = 5;
+var q_table = Array(numStates).fill().map( () => Array(numStates).fill().map( () => Array(2).fill(0)));
 // inputs
 /*
 - numStates
@@ -28,7 +29,18 @@ var speedDown = 1;
 - gamma
 - rewardExponentialReductionValue
 - explorationRate
+------------------
+buttons:
+- generate policy
+- run policy
+- reset to defaults
+
+jump modes:
+- normal jump bounce
+- strict up down
+-
 */
+// outputs
 // flappy
 class Component {
   constructor(id, width, height, color, x, y, type) {
@@ -63,7 +75,7 @@ class Component {
     this.obstacleTopHeight = 0;
     this.obstacleBottomHeight = 0;
     this.gravity = 0;
-    this.gravitySpeed = 0;
+    this.gravitySpeed = 4.5;
     this.score = 0;
     this.maxScore = 0;
     this.round = 0;
@@ -74,6 +86,8 @@ class Component {
     this.reward = 0;
     this.totalReward = 0;
     this.done = false;
+    this.episode = 0;
+    this.iteration = 0;
   }
   update() {
     let ctx = myGameArea.context;
@@ -127,16 +141,22 @@ class Component {
   }
 }
 
-function startGame() {
+function startGame(mode) {
   myGamePiece = new Component("agent", 40, 30, "images/bird.png", 100, 120, "image");
-  myGamePiece.gravitySpeed = 4.5;
-  myGamePiece.gravity = 0;
   myScore = new Component("text", "15px", "Roboto", "white", 280, 40, "text");
   roundsPlayed = new Component("text", "15px", "Roboto", "white", 280, 70, "text");
   episode = new Component("text", "15px", "Roboto", "white", 280, 100, "text");
   iteration = new Component("text", "15px", "Roboto", "white", 280, 130, "text");
   maxScore = new Component("text", "10px", "Roboto", "white", 280, 160, "text");
-  myGameArea.start();
+  if (mode == 0) {
+    myGameArea.reset();
+    myGameArea.start();
+    main();
+  } else if (mode == 1) {
+    myGameArea.reset();
+    myGameArea.start();
+    runPolicy();
+  }
 }
 
 let myGameArea = {
@@ -152,7 +172,7 @@ let myGameArea = {
     }
     document.body.insertBefore(this.canvas, document.body.childNodes[0]);
     this.frameNo = 0;
-    main();
+
     // setInterval(updateGameArea, 20);
   },
   clear: function() {
@@ -196,13 +216,13 @@ async function main() {
   let initial_lr = 1.0;
   let min_lr = 0.0001;
 
-  var q_table = Array(numStates).fill().map( () => Array(numStates).fill().map( () => Array(2).fill(0)));
-
   for (let i = 0; i < episodes; i++) {
     myGamePiece.totalReward = 0;
+    myGamePiece.episode = i;
     let eta = Math.max(min_lr, initial_lr * (Math.pow(0.85, Math.floor(i))));
 
     for (let j = 0; j < iterations; j++) {
+      myGamePiece.iteration = j;
       if (speed == 0) {
         await sleep(0.000001);
       }
@@ -231,10 +251,7 @@ async function main() {
       // let next = myGamePiece.reward + gamma * Math.max(...q_table[a_n][b_n]);
       // let current = q_table[a][b][myGamePiece.action]
       // q_table[a][b][myGamePiece.action] = current + eta * (next - current);
-      iteration.text = "ITERATION: " + j;
-      iteration.update();
-      episode.text = "EPISODE: " + i;
-      episode.update();
+
     }
     console.log(`Iteration ${i+1} -- Total reward = ${myGamePiece.totalReward} ${eta}`);
     if (speed == 3) {
@@ -242,8 +259,35 @@ async function main() {
     }
   }
   console.log(`${myGamePiece.totalReward} ${myGamePiece.maxScore}`);
+  myGameArea.reset();
+  return;
 }
 
+// ================================================================ //
+// =====================   Run Policy      ======================== //
+// ================================================================ //
+
+async function runPolicy() {
+  // get failiure rate by running policy x times until dead or solething like that
+  while (!myGamePiece.done) {
+    console.log("running");
+
+
+    let stateMap = toState(myGamePiece.deltaTopBar, myGamePiece.deltaBottomBar);
+    let a = stateMap.deltaTop;
+    let b = stateMap.deltaBottom;
+
+    myGamePiece.action = q_table[a][b].indexOf(Math.max(...q_table[a][b]));
+    // myGamePiece.action = q_table[a][b];
+    console.log(`d top: ${myGamePiece.deltaTopBar}, d bottom: ${myGamePiece.deltaBottomBar}`);
+    console.log(`d top: ${a}, d bottom: ${b} ${q_table[a][b]}`);
+
+    // myGamePiece.action = Math.floor(Math.random() * 2);
+    console.log(myGamePiece.action);
+    updateGameArea();
+    await sleep(20);
+  }
+}
 // ================================================================ //
 // =====================   Update Game     ======================== //
 // ================================================================ //
@@ -254,6 +298,7 @@ function updateGameArea() {
     if (myGamePiece.crashWith(myObstacles[i])) {
       // myGamePiece.reward = -1000;
       myGameArea.reset();
+      myGamePiece.done = true;
       /* Important: need to set penalty before termination */
       return -1;
     }
@@ -270,17 +315,17 @@ function updateGameArea() {
     myObstacles.push(new Component("bbar", 40, y - height - myGamePiece.gapHeight, "images/bp.png", x, height + myGamePiece.gapHeight, "image"));
   }
 
-  if (myGamePiece.action == 1) {
-    moveUp();
-  }
-  else {
-    moveDown();
-  }
-
   // if (myGamePiece.action == 1) {
-  //   moveup();
+  //   moveUp();
   // }
-  // setGamePieceSpeed();
+  // else {
+  //   moveDown();
+  // }
+
+  if (myGamePiece.action == 1) {
+    moveup();
+  }
+  setGamePieceSpeed();
 
   myGamePiece.obstacleTopHeight = myObstacles[0].height;
   myGamePiece.obstacleBottomHeight = myObstacles[1].height;
@@ -305,7 +350,6 @@ function updateGameArea() {
       myGamePiece.deltaBottomBar = myGamePiece.distToFloor - myGamePiece.obstacleBottomHeight;
       myGamePiece.env_y_obs_min = myGamePiece.obstacleTopHeight;
       myGamePiece.env_y_obs_max = myGamePiece.env_y_max - myGamePiece.obstacleBottomHeight;
-      myGamePiece.done = true;
     }
     myObstacles[i].x += myGamePiece.obsticalSpeedX;
     myObstacles[i+1].x += myGamePiece.obsticalSpeedX;
@@ -325,6 +369,10 @@ function updateGameArea() {
   myScore.text = "SCORE: " + myGamePiece.score;
   roundsPlayed.text = "ROUND: " + myGamePiece.round;
   maxScore.text = "MAX SCORE: " + myGamePiece.maxScore;
+  iteration.text = "ITERATION: " + myGamePiece.iteration;
+  iteration.update();
+  episode.text = "EPISODE: " + myGamePiece.episode;
+  episode.update();
   myScore.update();
   maxScore.update();
   roundsPlayed.update();
