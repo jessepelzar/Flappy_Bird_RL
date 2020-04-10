@@ -9,26 +9,63 @@ var iteration;
 var paused = false;
 var slow = false;
 var numStates = 40;
-var rewardExponentialReductionValue = 5;
+var rewardExponent = 5;
 var episodes = 10;
 var iterations = 10000;
 var gamma = 1.0;
 var alpha = 0.05;
-var explorationRate = 0.2;
+var epsilon = 0.2;
 var speed = 3;
-var speedUp = 5;
-var speedDown = 5;
+var speedUp = 3;
+var speedDown = 1;
+var jumpMode = true;
+var humanMode = false;
+var TERMINATE = false;
 var q_table = Array(numStates).fill().map( () => Array(numStates).fill().map( () => Array(2).fill(0)));
+
+
+
+function resetInputs() {
+  numStates = 40;
+  episodes = 10;
+  iterations = 10000;
+  gamma = 1.0;
+  epsilon = 0.2;
+  rewardExponent = 5;
+  document.getElementById("number-states").value = numStates;
+  document.getElementById("number-episodes").value = episodes;
+  document.getElementById("number-iterations").value = iterations;
+  document.getElementById("number-gamma").value = gamma;
+  document.getElementById("number-epsilon").value = epsilon;
+  document.getElementById("number-reward-exponent").value = rewardExponent;
+}
+
+function scanInputs() {
+  numStates = document.getElementById("number-states").value;
+  episodes = document.getElementById("number-episodes").value;
+  iterations = document.getElementById("number-iterations").value;
+  gamma = document.getElementById("number-gamma").value;
+  epsilon = document.getElementById("number-epsilon").value;
+  rewardExponent = document.getElementById("number-reward-exponent").value;
+}
+
+function resetButtonLabels() {
+  document.getElementById('play-mode').innerHTML = 'Play Game';
+  document.getElementById('learning-mode').innerHTML = 'Run Learning';
+  document.getElementById('running-mode').innerHTML = 'Run Policy';
+}
+
+
 // inputs
 /*
-- numStates
+- numStates /
 - Modes: Slow, Fast
-- episodes
-- iterations
+- episodes /
+- iterations /
 - alpha
-- gamma
-- rewardExponentialReductionValue
-- explorationRate
+- gamma /
+- rewardExponentialReductionValue /
+- explorationRate /
 ------------------
 buttons:
 - generate policy
@@ -67,6 +104,7 @@ class Component {
     this.maxHeight = 115;
     this.gapHeight = 135;
     this.intervalVal = 100;
+    this.interval = 0;
 
     this.distToCeil = 0;
     this.distToFloor = 0;
@@ -142,6 +180,26 @@ class Component {
 }
 
 function startGame(mode) {
+  scanInputs();
+  if (mode == 0 && document.getElementById('learning-mode').innerHTML == 'Stop') {
+    TERMINATE = true;
+    document.getElementById('learning-mode').innerHTML = 'Run Learning';
+    myGameArea.reset();
+    myGameArea.preload();
+    return;
+  }
+  if (mode == 1 && document.getElementById('running-mode').innerHTML == 'Stop') {
+    TERMINATE = true;
+    document.getElementById('running-mode').innerHTML = 'Run Policy';
+    myGameArea.reset();
+    myGameArea.preload();
+    return;
+  }
+  if (mode == 2 && document.getElementById('play-mode').innerHTML == 'Jump') {
+    console.log("kncjsakcasjnk");
+    moveup();
+    return;
+  }
   myGamePiece = new Component("agent", 40, 30, "images/bird.png", 100, 120, "image");
   myScore = new Component("text", "15px", "Roboto", "white", 280, 40, "text");
   roundsPlayed = new Component("text", "15px", "Roboto", "white", 280, 70, "text");
@@ -149,18 +207,58 @@ function startGame(mode) {
   iteration = new Component("text", "15px", "Roboto", "white", 280, 130, "text");
   maxScore = new Component("text", "10px", "Roboto", "white", 280, 160, "text");
   if (mode == 0) {
+    TERMINATE = false;
+    resetButtonLabels();
+    document.getElementById('learning-mode').innerHTML = 'Stop';
     myGameArea.reset();
     myGameArea.start();
+    humanMode = false;
     main();
   } else if (mode == 1) {
+    TERMINATE = false;
+    resetButtonLabels();
+    document.getElementById('running-mode').innerHTML = 'Stop';
     myGameArea.reset();
     myGameArea.start();
+    humanMode = false;
     runPolicy();
+  } else if (mode == 2) {
+    TERMINATE = false;
+    resetButtonLabels();
+    myGameArea.reset();
+    myGameArea.start();
+    humanMode = true;
+    // if (myGamePiece.done) {
+    //   clearTimeout(myGamePiece.interval);
+    // }
+    myGamePiece.interval = setInterval(updateGameArea, 20);
+
+    // document.getElementById('play-mode').innerHTML == 'Play Game';
+    // myGameArea.reset();
+    // myGameArea.preload();
+    // console.log("crash");
+    // clearTimeout(myGamePiece.interval);
   }
+}
+
+document.body.onload = () => {
+  myGameArea.preload();
 }
 
 let myGameArea = {
   canvas: document.createElement("canvas"),
+  preload: function() {
+    this.canvas.width = 400;
+    this.canvas.height = 300;
+    this.context = this.canvas.getContext("2d");
+    var background = new Image();
+    background.src = "images/THUMBNAIL.png";
+    background.onload = () => {
+      this.context.drawImage(background, 0, 0, this.canvas.width, this.canvas.height);
+    }
+    document.body.insertBefore(this.canvas, document.body.childNodes[4]);
+    this.frameNo = 0;
+  },
   start: function() {
     this.canvas.width = 400;
     this.canvas.height = myGamePiece.env_y_max;
@@ -170,7 +268,7 @@ let myGameArea = {
     background.onload = () => {
       this.context.drawImage(background, 0, 0, this.canvas.width, this.canvas.height);
     }
-    document.body.insertBefore(this.canvas, document.body.childNodes[0]);
+    document.body.insertBefore(this.canvas, document.body.childNodes[2]);
     this.frameNo = 0;
 
     // setInterval(updateGameArea, 20);
@@ -181,13 +279,15 @@ let myGameArea = {
     background.src = "images/bg.png";
     this.context.drawImage(background, 0, 0, this.canvas.width, this.canvas.height);
   },
-  reset: () => {
+  reset: function() {
+    // resetButtonLabels();
     myGamePiece.y = 120;
     myGamePiece.score = 0;
     myObstacles = [];
     deadObstacles = [];
     myGamePiece.round++;
     myGameArea.frameNo = 0;
+    myGamePiece.done = false;
   }
 }
 
@@ -200,9 +300,9 @@ Number.prototype.map = function(in_min, in_max, out_min, out_max) {
 }
 
 function toState(stateTop, stateBottom) {
-  var deltaTop = Math.floor(myGamePiece.deltaTopBar.map(-115, 220, 0, numStates-1));
-  var deltaBottom = Math.floor(myGamePiece.deltaBottomBar.map(-115, 220, 0, numStates-1));
-  var reward = Math.abs(Math.pow(Math.abs(deltaTop - deltaBottom), rewardExponentialReductionValue)) * -1;
+  var deltaTop = Math.floor(myGamePiece.deltaTopBar.map(-1 * myGamePiece.maxHeight, myGamePiece.env_y_max - myGamePiece.minHeight - myGamePiece.height, 0, numStates-1));
+  var deltaBottom = Math.floor(myGamePiece.deltaBottomBar.map(-1 * myGamePiece.maxHeight, myGamePiece.env_y_max - myGamePiece.minHeight - myGamePiece.height, 0, numStates-1));
+  var reward = Math.abs(Math.pow(Math.abs(deltaTop - deltaBottom), rewardExponent)) * -1;
   myGamePiece.reward = reward;
   return {deltaTop, deltaBottom};
 }
@@ -217,19 +317,25 @@ async function main() {
   let min_lr = 0.0001;
 
   for (let i = 0; i < episodes; i++) {
+    if (TERMINATE) break;
     myGamePiece.totalReward = 0;
     myGamePiece.episode = i;
     let eta = Math.max(min_lr, initial_lr * (Math.pow(0.85, Math.floor(i))));
 
     for (let j = 0; j < iterations; j++) {
+      if (TERMINATE) break;
+
       myGamePiece.iteration = j;
-      if (speed == 0) {
+      if (speed == 4) {
+        await sleep(1);
+      }
+      if (speed == 2) {
         await sleep(0.000001);
       }
       if (speed == 1) {
         await sleep(20);
       }
-      if (speed == 2) {
+      if (speed == 0) {
         await sleep(200);
       }
 
@@ -237,7 +343,7 @@ async function main() {
       let a = stateMap.deltaTop;
       let b = stateMap.deltaBottom;
 
-      if (Math.random() < explorationRate) {
+      if (Math.random() < epsilon) {
         myGamePiece.action = Math.floor(Math.random() * 2);
       } else {
         myGamePiece.action = q_table[a][b].indexOf(Math.max(...q_table[a][b]));
@@ -255,7 +361,10 @@ async function main() {
     }
     console.log(`Iteration ${i+1} -- Total reward = ${myGamePiece.totalReward} ${eta}`);
     if (speed == 3) {
-      await sleep(1);
+      await sleep(0.0001);
+    }
+    if (speed == 4) {
+      await sleep(2);
     }
   }
   console.log(`${myGamePiece.totalReward} ${myGamePiece.maxScore}`);
@@ -270,8 +379,8 @@ async function main() {
 async function runPolicy() {
   // get failiure rate by running policy x times until dead or solething like that
   while (!myGamePiece.done) {
+    if (TERMINATE) break;
     console.log("running");
-
 
     let stateMap = toState(myGamePiece.deltaTopBar, myGamePiece.deltaBottomBar);
     let a = stateMap.deltaTop;
@@ -288,6 +397,21 @@ async function runPolicy() {
     await sleep(20);
   }
 }
+
+
+document.body.onkeyup = function(e) {
+  if (e.keyCode == 32) {
+    console.log("hjghj");
+    moveup();
+    // myGamePiece.action = 1;
+    // setGamePieceSpeed();
+  }
+  if (e.keyCode == 13) {
+    paused = !paused;
+    // slow = !slow;
+  }
+}
+
 // ================================================================ //
 // =====================   Update Game     ======================== //
 // ================================================================ //
@@ -296,13 +420,17 @@ function updateGameArea() {
   if (paused) return;
   for (let i = 0; i < myObstacles.length; i++) {
     if (myGamePiece.crashWith(myObstacles[i])) {
-      // myGamePiece.reward = -1000;
-      myGameArea.reset();
+      if (humanMode) {
+        resetButtonLabels();
+        clearTimeout(myGamePiece.interval);
+        return;
+      }
       myGamePiece.done = true;
-      /* Important: need to set penalty before termination */
+      myGameArea.reset();
       return -1;
     }
   }
+  // myGamePiece.done = false;
   myGameArea.clear();
   myGameArea.frameNo += 1;
   if (myGameArea.frameNo == 1 || everyinterval(myGamePiece.intervalVal)) {
@@ -315,17 +443,42 @@ function updateGameArea() {
     myObstacles.push(new Component("bbar", 40, y - height - myGamePiece.gapHeight, "images/bp.png", x, height + myGamePiece.gapHeight, "image"));
   }
 
-  // if (myGamePiece.action == 1) {
-  //   moveUp();
-  // }
-  // else {
-  //   moveDown();
+
+  // if (playMode !== "human") {
+  //   if (jumpMode == false) {
+  //     if (myGamePiece.action == 1) {
+  //       moveUp();
+  //     }
+  //     else {
+  //       moveDown();
+  //     }
+  //   } else {
+  //     if (myGamePiece.action == 1) {
+  //       moveup();
+  //     }
+  //     setGamePieceSpeed();
+  //   }
+  // } else {
+  //   setGamePieceSpeed();
   // }
 
-  if (myGamePiece.action == 1) {
-    moveup();
+  if (jumpMode == false) {
+    if (myGamePiece.action == 1) {
+      moveUp();
+    }
+    else {
+      moveDown();
+    }
+  } else {
+    if (myGamePiece.action == 1) {
+      moveup();
+    }
+
+    // myGamePiece.action = 0;
   }
   setGamePieceSpeed();
+
+
 
   myGamePiece.obstacleTopHeight = myObstacles[0].height;
   myGamePiece.obstacleBottomHeight = myObstacles[1].height;
@@ -366,6 +519,8 @@ function updateGameArea() {
       }
     }
   }
+
+  // setGamePieceSpeed();
   myScore.text = "SCORE: " + myGamePiece.score;
   roundsPlayed.text = "ROUND: " + myGamePiece.round;
   maxScore.text = "MAX SCORE: " + myGamePiece.maxScore;
@@ -378,6 +533,7 @@ function updateGameArea() {
   roundsPlayed.update();
   myGamePiece.newPos();
   myGamePiece.update();
+  console.log("end");
 }
 
 
@@ -398,7 +554,8 @@ function everyinterval(n) {
 }
 
 function moveup() {
-  if (myGamePiece.speedY < myGamePiece.gravitySpeed) return;
+
+  if (myGamePiece.speedY < myGamePiece.gravitySpeed && !humanMode) return;
   myGamePiece.speedY -= 4 * myGamePiece.jumpMultiplier;
   myGamePiece.newPos();
 }
@@ -410,14 +567,4 @@ function moveUp() {
 function moveDown() {
   myGamePiece.speedY = speedDown;
   myGamePiece.newPos();
-}
-
-document.body.onkeyup = function(e) {
-  if (e.keyCode == 32) {
-    moveup();
-  }
-  if (e.keyCode == 13) {
-    // paused = !paused;
-    slow = !slow;
-  }
 }
