@@ -16,27 +16,28 @@
   }
 </style>
 </head>
-<body onload="preloadEnv();" style="background-color:#3c3c3c; color: white; font-family: Roboto, sans-serif">
+<body onload="preloadEnv(); resetInputs();" style="background-color:#3c3c3c; color: white; font-family: Roboto, sans-serif">
   <P>Q-Learning Flappy Bird</P>
   <br><br>
   <button id="play-mode" type="button" name="button" value=false onclick="startGame(2); this.innerHTML='Jump';">Play Game</button>
   <button id="learning-mode" type="button" name="button" onclick="startGame(0);">Run Learning</button>
   <button id="running-mode" type="button" name="button" onclick="startGame(1);">Run Policy</button><br>
-  <button id="reset-defaults" type="button" name="button" onclick="resetInputs();">Reset Inputs</button><br><br>
+  <button id="reset-defaults" type="button" name="button" onclick="resetInputs();">Reset Inputs</button>
+  <button id="reset-qtable" type="button" name="button" onclick="resetQtable();">Reset Q Table</button><br><br>
   <label for="number-states">Number of States: </label><br>
-  <input id="number-states" type="number" name="" value="40"><br>
+  <input id="number-states" type="number" name=""><br>
   <label for="number-episodes">Number of Episodes: </label><br>
-  <input id="number-episodes" type="number" name="" value="10"><br>
+  <input id="number-episodes" type="number" name=""><br>
   <label for="number-iterations">Number of Iterations: </label><br>
-  <input id="number-iterations" type="number" name="" value="10000"><br>
+  <input id="number-iterations" type="number" name=""><br>
 
   <!-- <input class="number-alpha" type="number" min="0" max="1.0" step="0.01" name="" value="0.05"> -->
   <label for="number-gamma">Gamma: </label><br>
-  <input id="number-gamma" type="number" min="0" max="1.0" step="0.01" name="" value="1.0"><br>
+  <input id="number-gamma" type="number" min="0" max="1.0" step="0.01" name=""><br>
   <label for="number-epsilon">Epsilon: </label><br>
-  <input id="number-epsilon" type="number" min="0" max="1.0" step="0.01" name="" value="0.2"><br>
+  <input id="number-epsilon" type="number" min="0" max="1.0" step="0.01" name=""><br>
   <label for="number-reward-exponent">Reward Exponent: </label><br>
-  <input id="number-reward-exponent" type="number" name="" value="5"><br>
+  <input id="number-reward-exponent" type="number" name=""><br>
 
 
   <script type="text/javascript" src="main.js"></script>

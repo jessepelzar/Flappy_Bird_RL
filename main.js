@@ -8,16 +8,16 @@ var episode;
 var iteration;
 var paused = false;
 var slow = false;
-var numStates = 40;
+var numStates = 10;
 var rewardExponent = 5;
 var episodes = 10;
 var iterations = 10000;
-var gamma = 1.0;
+var gamma = 0.5;
 var alpha = 0.05;
-var epsilon = 0.2;
+var epsilon = 0.1;
 var speed = 3;
-var speedUp = 3;
-var speedDown = 1;
+var speedUp = 5;
+var speedDown = 5;
 var jumpMode = true;
 var humanMode = false;
 var TERMINATE = false;
@@ -27,11 +27,11 @@ var q_table = Array(numStates).fill().map( () => Array(numStates).fill().map( ()
 
 
 function resetInputs() {
-  numStates = 40;
+  numStates = 10;
   episodes = 10;
   iterations = 10000;
-  gamma = 1.0;
-  epsilon = 0.2;
+  gamma = 0.5;
+  epsilon = 0.1;
   rewardExponent = 5;
   document.getElementById("number-states").value = numStates;
   document.getElementById("number-episodes").value = episodes;
@@ -39,21 +39,27 @@ function resetInputs() {
   document.getElementById("number-gamma").value = gamma;
   document.getElementById("number-epsilon").value = epsilon;
   document.getElementById("number-reward-exponent").value = rewardExponent;
+  resetQtable()
 }
 
 function scanInputs() {
-  numStates = document.getElementById("number-states").value;
+  numStates = parseInt(document.getElementById("number-states").value);
   episodes = document.getElementById("number-episodes").value;
   iterations = document.getElementById("number-iterations").value;
   gamma = document.getElementById("number-gamma").value;
   epsilon = document.getElementById("number-epsilon").value;
   rewardExponent = document.getElementById("number-reward-exponent").value;
+  resetQtable();
 }
 
 function resetButtonLabels() {
   document.getElementById('play-mode').innerHTML = 'Play Game';
   document.getElementById('learning-mode').innerHTML = 'Run Learning';
   document.getElementById('running-mode').innerHTML = 'Run Policy';
+}
+
+function resetQtable() {
+  q_table = Array(numStates).fill().map( () => Array(numStates).fill().map( () => Array(2).fill(0)));
 }
 
 
@@ -101,9 +107,9 @@ class Component {
     this.env_y_max = 300;
     this.env_y_obs_min = 0;
     this.env_y_obs_max = 0;
-    this.minHeight = 50;
-    this.maxHeight = 115;
+    this.maxHeight = 125;
     this.gapHeight = 135;
+    this.minHeight = this.env_y_max - this.maxHeight - this.gapHeight;
     this.intervalVal = 100;
     this.interval = 0;
 
@@ -114,7 +120,7 @@ class Component {
     this.obstacleTopHeight = 0;
     this.obstacleBottomHeight = 0;
     this.gravity = 0;
-    this.gravitySpeed = 4.5;
+    this.gravitySpeed = 4.0;
     this.score = 0;
     this.maxScore = 0;
     this.round = 0;
@@ -181,7 +187,7 @@ class Component {
 }
 
 function startGame(mode) {
-  scanInputs();
+
   if (mode == 0 && document.getElementById('learning-mode').innerHTML == 'Stop') {
     TERMINATE = true;
     document.getElementById('learning-mode').innerHTML = 'Run Learning';
@@ -210,6 +216,7 @@ function startGame(mode) {
   if (mode == 0) {
     TERMINATE = false;
     resetButtonLabels();
+    scanInputs();
     document.getElementById('learning-mode').innerHTML = 'Stop';
     myGameArea.reset();
     myGameArea.start();
@@ -300,6 +307,8 @@ Number.prototype.map = function(in_min, in_max, out_min, out_max) {
   return (this - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
+
+
 function toState(stateTop, stateBottom) {
   var deltaTop = Math.floor(myGamePiece.deltaTopBar.map(-1 * myGamePiece.maxHeight, myGamePiece.env_y_max - myGamePiece.minHeight - myGamePiece.height, 0, numStates-1));
   var deltaBottom = Math.floor(myGamePiece.deltaBottomBar.map(-1 * myGamePiece.maxHeight, myGamePiece.env_y_max - myGamePiece.minHeight - myGamePiece.height, 0, numStates-1));
@@ -315,18 +324,18 @@ function toState(stateTop, stateBottom) {
 async function main() {
   let eps = 0.02;
   let initial_lr = 1.0;
-  let min_lr = 0.0001;
-
+  let min_lr = 0.001;
+  console.log(numStates)
   for (let i = 0; i < episodes; i++) {
     if (TERMINATE) break;
     myGamePiece.totalReward = 0;
-    myGamePiece.episode = i;
+    myGamePiece.episode = i+1;
     let eta = Math.max(min_lr, initial_lr * (Math.pow(0.85, Math.floor(i))));
 
     for (let j = 0; j < iterations; j++) {
       if (TERMINATE) break;
+      myGamePiece.iteration = j+1;
 
-      myGamePiece.iteration = j;
       if (speed == 4) {
         await sleep(1);
       }
@@ -382,7 +391,7 @@ async function runPolicy() {
   while (!myGamePiece.done) {
     if (TERMINATE) break;
     console.log("running");
-
+    updateGameArea();
     let stateMap = toState(myGamePiece.deltaTopBar, myGamePiece.deltaBottomBar);
     let a = stateMap.deltaTop;
     let b = stateMap.deltaBottom;
@@ -394,7 +403,7 @@ async function runPolicy() {
 
     // myGamePiece.action = Math.floor(Math.random() * 2);
     console.log(myGamePiece.action);
-    updateGameArea();
+
     await sleep(20);
   }
 }
