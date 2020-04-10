@@ -21,6 +21,7 @@ var speedDown = 1;
 var jumpMode = true;
 var humanMode = false;
 var TERMINATE = false;
+
 var q_table = Array(numStates).fill().map( () => Array(numStates).fill().map( () => Array(2).fill(0)));
 
 
@@ -241,7 +242,7 @@ function startGame(mode) {
   }
 }
 
-document.body.onload = () => {
+function preloadEnv() {
   myGameArea.preload();
 }
 
