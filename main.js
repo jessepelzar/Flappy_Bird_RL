@@ -15,7 +15,8 @@ var iterations = 10000;
 var gamma = 0.5;
 var alpha = 0.05;
 var epsilon = 0.1;
-var speed = 3;
+var speedLearning = 1;
+var speedRunning = 1;
 var speedUp = 5;
 var speedDown = 5;
 var jumpMode = true;
@@ -49,8 +50,12 @@ function scanInputs() {
   gamma = document.getElementById("number-gamma").value;
   epsilon = document.getElementById("number-epsilon").value;
   rewardExponent = document.getElementById("number-reward-exponent").value;
-  resetQtable();
+  speedLearning = parseInt(document.getElementById('run-learning-speeds').value);
+  speedRunning = parseInt(document.getElementById('run-policy-speeds').value);
 }
+
+
+
 
 function resetButtonLabels() {
   document.getElementById('play-mode').innerHTML = 'Play Game';
@@ -217,6 +222,7 @@ function startGame(mode) {
     TERMINATE = false;
     resetButtonLabels();
     scanInputs();
+    resetQtable();
     document.getElementById('learning-mode').innerHTML = 'Stop';
     myGameArea.reset();
     myGameArea.start();
@@ -225,6 +231,7 @@ function startGame(mode) {
   } else if (mode == 1) {
     TERMINATE = false;
     resetButtonLabels();
+    scanInputs();
     document.getElementById('running-mode').innerHTML = 'Stop';
     myGameArea.reset();
     myGameArea.start();
@@ -336,17 +343,10 @@ async function main() {
       if (TERMINATE) break;
       myGamePiece.iteration = j+1;
 
-      if (speed == 4) {
-        await sleep(1);
-      }
-      if (speed == 2) {
-        await sleep(0.000001);
-      }
-      if (speed == 1) {
-        await sleep(20);
-      }
-      if (speed == 0) {
-        await sleep(200);
+      switch (speedLearning) {
+        case 0: await sleep(200); break;
+        case 1: await sleep(20); break;
+        case 2: await sleep(0.0001); break;
       }
 
       let stateMap = toState(myGamePiece.deltaTopBar, myGamePiece.deltaBottomBar);
@@ -370,12 +370,10 @@ async function main() {
 
     }
     console.log(`Iteration ${i+1} -- Total reward = ${myGamePiece.totalReward} ${eta}`);
-    if (speed == 3) {
+    if (speedLearning == 3) {
       await sleep(0.0001);
     }
-    if (speed == 4) {
-      await sleep(2);
-    }
+
   }
   console.log(`${myGamePiece.totalReward} ${myGamePiece.maxScore}`);
   myGameArea.reset();
@@ -403,8 +401,11 @@ async function runPolicy() {
 
     // myGamePiece.action = Math.floor(Math.random() * 2);
     console.log(myGamePiece.action);
-
-    await sleep(20);
+    switch (speedRunning) {
+      case 0: await sleep(200); break;
+      case 1: await sleep(20); break;
+      case 2: await sleep(0.0001); break;
+    }
   }
 }
 
