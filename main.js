@@ -40,6 +40,8 @@ function resetInputs() {
   document.getElementById("number-gamma").value = gamma;
   document.getElementById("number-epsilon").value = epsilon;
   document.getElementById("number-reward-exponent").value = rewardExponent;
+  document.getElementById("jump-value").value = speedUp;
+  document.getElementById("fall-value").value = speedDown;
   resetQtable()
 }
 
@@ -52,6 +54,15 @@ function scanInputs() {
   rewardExponent = document.getElementById("number-reward-exponent").value;
   speedLearning = parseInt(document.getElementById('run-learning-speeds').value);
   speedRunning = parseInt(document.getElementById('run-policy-speeds').value);
+  speedUp = parseInt(document.getElementById('jump-value').value);
+  speedDown = parseInt(document.getElementById('fall-value').value);
+  if ( parseInt(document.getElementById('jump-modes').value) == 0) {
+    jumpMode = true;
+    document.getElementById("linear-jump-values").style.display = "none";
+  } else {
+    jumpMode = false;
+    document.getElementById("linear-jump-values").style.display = "block";
+  }
 }
 
 
@@ -410,18 +421,18 @@ async function runPolicy() {
 }
 
 
-document.body.onkeyup = function(e) {
-  if (e.keyCode == 32) {
-    console.log("hjghj");
-    moveup();
-    // myGamePiece.action = 1;
-    // setGamePieceSpeed();
-  }
-  if (e.keyCode == 13) {
-    paused = !paused;
-    // slow = !slow;
-  }
-}
+// document.body.onkeyup = function(e) {
+//   if (e.keyCode == 32) {
+//     console.log("hjghj");
+//     moveup();
+//     // myGamePiece.action = 1;
+//     // setGamePieceSpeed();
+//   }
+//   if (e.keyCode == 13) {
+//     paused = !paused;
+//     // slow = !slow;
+//   }
+// }
 
 // ================================================================ //
 // =====================   Update Game     ======================== //

@@ -10,51 +10,104 @@
     margin: 0 auto !important;
     text-align: center !important;
   }
+
   P {
     margin-bottom:0px;
     margin-top: 20px;
   }
+  .upper-class {
+    margin: 0 auto;
+  }
+  .lower-class {
+    margin: auto;
+    width: 50%;
+    min-width: 400px;
+    height: 150px;
+    /* display: inline-flex; */
+    justify-content: flex-end;
+    text-align: left;
+  }
+  .box1 {
+    float: left;
+    /* margin: 10px; */
+    position: inherit;
+  }
+  .box2 {
+    float: right;
+    position: inherit;
+  }
 </style>
 </head>
 <body onload="preloadEnv(); resetInputs();" style="background-color:#3c3c3c; color: white; font-family: Roboto, sans-serif">
-  <P>Q-Learning Flappy Bird</P>
+
+    <P>Q-Learning Flappy Bird</P>
+    <br><br>
+    <div class="upper-class">
+      <button id="play-mode" type="button" name="button" value=false onclick="startGame(2); this.innerHTML='Jump';">Play Game</button>
+      <button id="learning-mode" type="button" name="button" onclick="startGame(0);">Run Learning</button>
+      <button id="running-mode" type="button" name="button" onclick="startGame(1);">Run Policy</button><br>
+      <button id="reset-defaults" type="button" name="button" onclick="resetInputs();">Reset Inputs</button>
+      <button id="reset-qtable" type="button" name="button" onclick="resetQtable();">Reset Q Table</button><br><br>
+
+
+    </div>
+    <div class="lower-class">
+      <div class="box2">
+        <label for="run-learning-speeds">Learning Speed: </label><br>
+        <select id="run-learning-speeds" name="Run Learning Speed">
+          <option value="0">Slow</option>
+          <option value="1" selected>Regular</option>
+          <option value="2">Fast</option>
+          <option value="3">Ultra Fast</option>
+        </select><br>
+
+        <label for="run-policy-speeds">Policy Speed: </label><br>
+        <select id="run-policy-speeds" name="Run Policy Speed">
+          <option value="0">Slow</option>
+          <option value="1" selected>Regular</option>
+          <option value="2">Fast</option>
+        </select>
+      </div>
+      <div class="box1">
+        <label for="jump-modes">Jump Mode:</label><br>
+        <select id="jump-modes" name="jumpModes" oninput="scanInputs()">
+          <option value="0" selected>Standard</option>
+          <option value="1">Linear</option>
+        </select><br>
+        <div id="linear-jump-values" style="display:none;">
+          <label for="jump-value">Jump Value: </label><br>
+          <input id="jump-value" type="number" name=""><br>
+          <label for="fall-value">Fall Value: </label><br>
+          <input id="fall-value" type="number" name=""><br><br>
+        </div>
+      </div>
+    </div>
+    <div class="lower-class">
+      <div class="box1">
+        <label for="number-states">Number of States: </label><br>
+        <input id="number-states" type="number" name=""><br>
+        <label for="number-episodes">Number of Episodes: </label><br>
+        <input id="number-episodes" type="number" name=""><br>
+        <label for="number-iterations">Number of Iterations: </label><br>
+        <input id="number-iterations" type="number" name=""><br>
+      </div>
+
+
+      <!-- <input class="number-alpha" type="number" min="0" max="1.0" step="0.01" name="" value="0.05"> -->
+      <div class="box2">
+        <label for="number-gamma">Gamma: </label><br>
+        <input id="number-gamma" type="number" min="0" max="1.0" step="0.01" name=""><br>
+        <label for="number-epsilon">Epsilon: </label><br>
+        <input id="number-epsilon" type="number" min="0" max="1.0" step="0.01" name=""><br>
+        <label for="number-reward-exponent">Reward Exponent: </label><br>
+        <input id="number-reward-exponent" type="number" name=""><br>
+      </div>
+    </div>
+
+
+
+
   <br><br>
-  <button id="play-mode" type="button" name="button" value=false onclick="startGame(2); this.innerHTML='Jump';">Play Game</button>
-  <button id="learning-mode" type="button" name="button" onclick="startGame(0);">Run Learning</button>
-  <button id="running-mode" type="button" name="button" onclick="startGame(1);">Run Policy</button><br>
-  <button id="reset-defaults" type="button" name="button" onclick="resetInputs();">Reset Inputs</button>
-  <button id="reset-qtable" type="button" name="button" onclick="resetQtable();">Reset Q Table</button><br><br>
-
-  <label for="run-learning-speeds">Run Learning Speed: </label>
-  <select id="run-learning-speeds" name="Run Learning Speed">
-    <option value="0">Slow</option>
-    <option value="1" selected>Regular</option>
-    <option value="2">Fast</option>
-    <option value="3">Ultra Fast</option>
-  </select><br>
-
-  <label for="run-policy-speeds">Run Policy Speed: </label>
-  <select id="run-policy-speeds" name="Run Policy Speed">
-    <option value="0">Slow</option>
-    <option value="1" selected>Regular</option>
-    <option value="2">Fast</option>
-  </select><br><br>
-
-  <label for="number-states">Number of States: </label><br>
-  <input id="number-states" type="number" name=""><br>
-  <label for="number-episodes">Number of Episodes: </label><br>
-  <input id="number-episodes" type="number" name=""><br>
-  <label for="number-iterations">Number of Iterations: </label><br>
-  <input id="number-iterations" type="number" name=""><br>
-
-  <!-- <input class="number-alpha" type="number" min="0" max="1.0" step="0.01" name="" value="0.05"> -->
-  <label for="number-gamma">Gamma: </label><br>
-  <input id="number-gamma" type="number" min="0" max="1.0" step="0.01" name=""><br>
-  <label for="number-epsilon">Epsilon: </label><br>
-  <input id="number-epsilon" type="number" min="0" max="1.0" step="0.01" name=""><br>
-  <label for="number-reward-exponent">Reward Exponent: </label><br>
-  <input id="number-reward-exponent" type="number" name=""><br>
-
 
   <script type="text/javascript" src="main.js"></script>
 </body>
