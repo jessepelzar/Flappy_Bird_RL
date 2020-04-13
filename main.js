@@ -22,7 +22,8 @@ var speedDown = 5;
 var jumpMode = true;
 var humanMode = false;
 var TERMINATE = false;
-
+var sleep;
+var timeoutId;
 var q_table = Array(numStates).fill().map( () => Array(numStates).fill().map( () => Array(2).fill(0)));
 
 
@@ -202,68 +203,85 @@ class Component {
   }
 }
 
-function startGame(mode) {
 
-  if (mode == 0 && document.getElementById('learning-mode').innerHTML == 'Stop') {
-    TERMINATE = true;
-    document.getElementById('learning-mode').innerHTML = 'Run Learning';
-    myGameArea.reset();
-    myGameArea.preload();
-    return;
-  }
-  if (mode == 1 && document.getElementById('running-mode').innerHTML == 'Stop') {
-    TERMINATE = true;
-    document.getElementById('running-mode').innerHTML = 'Run Policy';
-    myGameArea.reset();
-    myGameArea.preload();
-    return;
-  }
-  if (mode == 2 && document.getElementById('play-mode').innerHTML == 'Jump') {
-    console.log("kncjsakcasjnk");
-    moveup();
-    return;
-  }
+function assignGameComponents() {
   myGamePiece = new Component("agent", 40, 30, "images/bird.png", 100, 120, "image");
   myScore = new Component("text", "15px", "Roboto", "white", 280, 40, "text");
   roundsPlayed = new Component("text", "15px", "Roboto", "white", 280, 70, "text");
   episode = new Component("text", "15px", "Roboto", "white", 280, 100, "text");
   iteration = new Component("text", "15px", "Roboto", "white", 280, 130, "text");
   maxScore = new Component("text", "10px", "Roboto", "white", 280, 160, "text");
-  if (mode == 0) {
-    TERMINATE = false;
-    resetButtonLabels();
-    scanInputs();
-    resetQtable();
-    document.getElementById('learning-mode').innerHTML = 'Stop';
-    myGameArea.reset();
-    myGameArea.start();
-    humanMode = false;
-    main();
-  } else if (mode == 1) {
-    TERMINATE = false;
-    resetButtonLabels();
-    scanInputs();
-    document.getElementById('running-mode').innerHTML = 'Stop';
-    myGameArea.reset();
-    myGameArea.start();
-    humanMode = false;
-    runPolicy();
-  } else if (mode == 2) {
-    TERMINATE = false;
-    resetButtonLabels();
-    myGameArea.reset();
-    myGameArea.start();
-    humanMode = true;
-    // if (myGamePiece.done) {
-    //   clearTimeout(myGamePiece.interval);
-    // }
-    myGamePiece.interval = setInterval(updateGameArea, 20);
+}
 
-    // document.getElementById('play-mode').innerHTML == 'Play Game';
-    // myGameArea.reset();
-    // myGameArea.preload();
-    // console.log("crash");
-    // clearTimeout(myGamePiece.interval);
+
+function startGame(mode) {
+
+  // edge cases
+  sleep = new Sleep()
+  if (humanMode && mode !== 2) {
+     clearTimeout(myGamePiece.interval);
+  }
+  switch (mode) {
+    case 0:
+        if (document.getElementById('learning-mode').innerHTML == 'Stop') {
+          TERMINATE = true;
+          document.getElementById('learning-mode').innerHTML = 'Run Learning';
+          myGameArea.reset();
+          myGameArea.preload();
+          sleep.stop();
+          // return;
+        } else {
+          sleep.stop();
+          TERMINATE = false;
+          assignGameComponents();
+          resetButtonLabels();
+          scanInputs();
+          resetQtable();
+          document.getElementById('learning-mode').innerHTML = 'Stop';
+          document.getElementById('running-mode').innerHTML = 'Run Policy';
+          myGameArea.reset();
+          myGameArea.start();
+          humanMode = false;
+          main();
+        }
+    break;
+    case 1:
+        if (document.getElementById('running-mode').innerHTML == 'Stop') {
+          TERMINATE = true;
+          document.getElementById('running-mode').innerHTML = 'Run Policy';
+          myGameArea.reset();
+          myGameArea.preload();
+          sleep.stop();
+          // return;
+        } else {
+          sleep.stop();
+          TERMINATE = false;
+          assignGameComponents();
+          resetButtonLabels();
+          scanInputs();
+          document.getElementById('running-mode').innerHTML = 'Stop';
+          document.getElementById('learning-mode').innerHTML = 'Run Learning';
+          myGameArea.reset();
+          myGameArea.start();
+          humanMode = false;
+          runPolicy();
+        }
+    break;
+    case 2:
+        if (document.getElementById('play-mode').innerHTML == 'Jump') {
+          moveup();
+          return;
+        } else {
+          sleep.stop();
+          assignGameComponents();
+          resetButtonLabels();
+          myGameArea.reset();
+          myGameArea.start();
+          humanMode = true;
+          myGamePiece.interval = setInterval(updateGameArea, 20);
+        }
+        TERMINATE = true;
+    break;
   }
 }
 
@@ -317,8 +335,14 @@ let myGameArea = {
   }
 }
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+
+function Sleep() {
+  this.pause = (ms) => {
+    return new Promise(resolve => timeoutId = setTimeout(resolve, ms));
+  }
+  this.stop = () => {
+    clearTimeout(timeoutId);
+  }
 }
 
 Number.prototype.map = function(in_min, in_max, out_min, out_max) {
@@ -340,24 +364,25 @@ function toState(stateTop, stateBottom) {
 // ================================================================ //
 
 async function main() {
+  console.log("main");
   let eps = 0.02;
   let initial_lr = 1.0;
   let min_lr = 0.001;
   console.log(numStates)
   for (let i = 0; i < episodes; i++) {
-    if (TERMINATE) break;
+    if (TERMINATE) return;
     myGamePiece.totalReward = 0;
     myGamePiece.episode = i+1;
     let eta = Math.max(min_lr, initial_lr * (Math.pow(0.85, Math.floor(i))));
 
     for (let j = 0; j < iterations; j++) {
-      if (TERMINATE) break;
+      if (TERMINATE) return;
       myGamePiece.iteration = j+1;
 
       switch (speedLearning) {
-        case 0: await sleep(200); break;
-        case 1: await sleep(20); break;
-        case 2: await sleep(0.0001); break;
+        case 0: await sleep.pause(200); break;
+        case 1: await sleep.pause(20); break;
+        case 2: await sleep.pause(0.0001); break;
       }
 
       let stateMap = toState(myGamePiece.deltaTopBar, myGamePiece.deltaBottomBar);
@@ -375,14 +400,10 @@ async function main() {
       let a_n = stateMap_n.deltaTop;
       let b_n = stateMap_n.deltaBottom;
       q_table[a][b][myGamePiece.action] = (1 - eta) * q_table[a][b][myGamePiece.action] + (eta * (myGamePiece.reward + (gamma * Math.max(...q_table[a_n][b_n]))));
-      // let next = myGamePiece.reward + gamma * Math.max(...q_table[a_n][b_n]);
-      // let current = q_table[a][b][myGamePiece.action]
-      // q_table[a][b][myGamePiece.action] = current + eta * (next - current);
-
     }
     console.log(`Iteration ${i+1} -- Total reward = ${myGamePiece.totalReward} ${eta}`);
     if (speedLearning == 3) {
-      await sleep(0.0001);
+      await sleep.pause(0.0001);
     }
 
   }
@@ -398,41 +419,22 @@ async function main() {
 async function runPolicy() {
   // get failiure rate by running policy x times until dead or solething like that
   while (!myGamePiece.done) {
-    if (TERMINATE) break;
-    console.log("running");
+    if (TERMINATE) return;
     updateGameArea();
     let stateMap = toState(myGamePiece.deltaTopBar, myGamePiece.deltaBottomBar);
     let a = stateMap.deltaTop;
     let b = stateMap.deltaBottom;
 
     myGamePiece.action = q_table[a][b].indexOf(Math.max(...q_table[a][b]));
-    // myGamePiece.action = q_table[a][b];
-    console.log(`d top: ${myGamePiece.deltaTopBar}, d bottom: ${myGamePiece.deltaBottomBar}`);
-    console.log(`d top: ${a}, d bottom: ${b} ${q_table[a][b]}`);
 
-    // myGamePiece.action = Math.floor(Math.random() * 2);
-    console.log(myGamePiece.action);
+
     switch (speedRunning) {
-      case 0: await sleep(200); break;
-      case 1: await sleep(20); break;
-      case 2: await sleep(0.0001); break;
+      case 0: await sleep.pause(200); break;
+      case 1: await sleep.pause(20); break;
+      case 2: await sleep.pause(0.0001); break;
     }
   }
 }
-
-
-// document.body.onkeyup = function(e) {
-//   if (e.keyCode == 32) {
-//     console.log("hjghj");
-//     moveup();
-//     // myGamePiece.action = 1;
-//     // setGamePieceSpeed();
-//   }
-//   if (e.keyCode == 13) {
-//     paused = !paused;
-//     // slow = !slow;
-//   }
-// }
 
 // ================================================================ //
 // =====================   Update Game     ======================== //
@@ -445,6 +447,7 @@ function updateGameArea() {
       if (humanMode) {
         resetButtonLabels();
         clearTimeout(myGamePiece.interval);
+        humanMode = false;
         return;
       }
       myGamePiece.done = true;
@@ -459,30 +462,9 @@ function updateGameArea() {
     let x = myGameArea.canvas.width;
     let y = myGameArea.canvas.height;
     let height = Math.floor(Math.random() * (myGamePiece.maxHeight - myGamePiece.minHeight + 1) + myGamePiece.minHeight);
-    // let bars = [115, 50, 80];
-    // height = bars[Math.floor(Math.random() * 3)];
     myObstacles.push(new Component("tbar", 40, height, "images/tp.png", x, 0, "image"));
     myObstacles.push(new Component("bbar", 40, y - height - myGamePiece.gapHeight, "images/bp.png", x, height + myGamePiece.gapHeight, "image"));
   }
-
-
-  // if (playMode !== "human") {
-  //   if (jumpMode == false) {
-  //     if (myGamePiece.action == 1) {
-  //       moveUp();
-  //     }
-  //     else {
-  //       moveDown();
-  //     }
-  //   } else {
-  //     if (myGamePiece.action == 1) {
-  //       moveup();
-  //     }
-  //     setGamePieceSpeed();
-  //   }
-  // } else {
-  //   setGamePieceSpeed();
-  // }
 
   if (jumpMode == false) {
     if (myGamePiece.action == 1) {
@@ -495,8 +477,6 @@ function updateGameArea() {
     if (myGamePiece.action == 1) {
       moveup();
     }
-
-    // myGamePiece.action = 0;
   }
   setGamePieceSpeed();
 
@@ -555,7 +535,6 @@ function updateGameArea() {
   roundsPlayed.update();
   myGamePiece.newPos();
   myGamePiece.update();
-  console.log("end");
 }
 
 
