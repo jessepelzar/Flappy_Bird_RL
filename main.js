@@ -3,22 +3,24 @@ var myObstacles = [];
 var deadObstacles = [];
 var myScore;
 var maxScore;
+var scorePercent;
 var roundsPlayed;
 var episode;
 var iteration;
 var paused = false;
 var slow = false;
-var numStates = 10;
-var rewardExponent = 5;
-var episodes = 10;
-var iterations = 10000;
-var gamma = 0.5;
+var numStates;
+var rewardExponent;
+var episodes;
+var iterations;
+var gamma;
 var alpha = 0.05;
-var epsilon = 0.1;
+var epsilon;
 var speedLearning = 1;
 var speedRunning = 1;
 var speedUp = 5;
 var speedDown = 5;
+var maxRounds = 50;
 var jumpMode = true;
 var humanMode = false;
 var TERMINATE = false;
@@ -29,12 +31,14 @@ var q_table = Array(numStates).fill().map( () => Array(numStates).fill().map( ()
 
 
 function resetInputs() {
-  numStates = 10;
+  numStates = 5;
   episodes = 10;
-  iterations = 10000;
+  iterations = 1000;
   gamma = 0.5;
   epsilon = 0.1;
   rewardExponent = 5;
+  maxRounds = 50;
+  // document.getElementById("number-rounds").value = maxRounds;
   document.getElementById("number-states").value = numStates;
   document.getElementById("number-episodes").value = episodes;
   document.getElementById("number-iterations").value = iterations;
@@ -47,6 +51,7 @@ function resetInputs() {
 }
 
 function scanInputs() {
+  // maxRounds = parseInt(document.getElementById("number-rounds").value);
   numStates = parseInt(document.getElementById("number-states").value);
   episodes = document.getElementById("number-episodes").value;
   iterations = document.getElementById("number-iterations").value;
@@ -79,6 +84,30 @@ function resetQtable() {
   q_table = Array(numStates).fill().map( () => Array(numStates).fill().map( () => Array(2).fill(0)));
 }
 
+class RanGen {
+  constructor() {
+    this.m_w = 123456789;
+    this.m_z = 987654321;
+    this.mask = 0xffffffff;
+  }
+  // Takes any integer
+  seed(i) {
+      this.m_w = (123456789 + i) & this.mask;
+      this.m_z = (987654321 - i) & this.mask;
+  }
+  // Returns number between 0 (inclusive) and 1.0 (exclusive),
+  // just like Math.random().
+  random() {
+      this.m_z = (36969 * (this.m_z & 65535) + (this.m_z >> 16)) & this.mask;
+      this.m_w = (18000 * (this.m_w & 65535) + (this.m_w >> 16)) & this.mask;
+      var result = ((this.m_z << 16) + (this.m_w & 65535)) >>> 0;
+      result /= 4294967296;
+      return result;
+  }
+}
+
+var key = new RanGen();
+key.seed(100);
 
 // inputs
 /*
@@ -139,8 +168,11 @@ class Component {
     this.gravity = 0;
     this.gravitySpeed = 4.0;
     this.score = 0;
-    this.maxScore = 0;
     this.round = 0;
+    this.maxScore = 0;
+    this.totalScoreWins = 0;
+    this.totalScorePercent = 0;
+
     this.jumpMultiplier = 3.0;
     this.obsticalPosition = 0;
 
@@ -211,6 +243,7 @@ function assignGameComponents() {
   episode = new Component("text", "15px", "Roboto", "white", 280, 100, "text");
   iteration = new Component("text", "15px", "Roboto", "white", 280, 130, "text");
   maxScore = new Component("text", "10px", "Roboto", "white", 280, 160, "text");
+  scorePercent = new Component("text", "10px", "Roboto", "white", 280, 190, "text");
 }
 
 
@@ -237,6 +270,7 @@ function startGame(mode) {
           resetButtonLabels();
           scanInputs();
           resetQtable();
+          console.log(`epsilon: ${epsilon}`);
           document.getElementById('learning-mode').innerHTML = 'Stop';
           document.getElementById('running-mode').innerHTML = 'Run Policy';
           myGameArea.reset();
@@ -250,7 +284,7 @@ function startGame(mode) {
           TERMINATE = true;
           document.getElementById('running-mode').innerHTML = 'Run Policy';
           myGameArea.reset();
-          myGameArea.preload();
+          // myGameArea.preload();
           sleep.stop();
           // return;
         } else {
@@ -259,17 +293,19 @@ function startGame(mode) {
           assignGameComponents();
           resetButtonLabels();
           scanInputs();
+          console.log(`epsilon: ${epsilon}`);
           document.getElementById('running-mode').innerHTML = 'Stop';
           document.getElementById('learning-mode').innerHTML = 'Run Learning';
           myGameArea.reset();
           myGameArea.start();
           humanMode = false;
           runPolicy();
+
         }
     break;
     case 2:
         if (document.getElementById('play-mode').innerHTML == 'Jump') {
-          moveup();
+          standardJumpAction();
           return;
         } else {
           sleep.stop();
@@ -374,7 +410,7 @@ async function main() {
     myGamePiece.totalReward = 0;
     myGamePiece.episode = i+1;
     let eta = Math.max(min_lr, initial_lr * (Math.pow(0.85, Math.floor(i))));
-
+    console.log(eta);
     for (let j = 0; j < iterations; j++) {
       if (TERMINATE) return;
       myGamePiece.iteration = j+1;
@@ -389,8 +425,8 @@ async function main() {
       let a = stateMap.deltaTop;
       let b = stateMap.deltaBottom;
 
-      if (Math.random() < epsilon) {
-        myGamePiece.action = Math.floor(Math.random() * 2);
+      if (key.random() < epsilon) {
+        myGamePiece.action = Math.floor(key.random() * 2);
       } else {
         myGamePiece.action = q_table[a][b].indexOf(Math.max(...q_table[a][b]));
       }
@@ -461,21 +497,21 @@ function updateGameArea() {
   if (myGameArea.frameNo == 1 || everyinterval(myGamePiece.intervalVal)) {
     let x = myGameArea.canvas.width;
     let y = myGameArea.canvas.height;
-    let height = Math.floor(Math.random() * (myGamePiece.maxHeight - myGamePiece.minHeight + 1) + myGamePiece.minHeight);
+    let height = Math.floor(key.random() * (myGamePiece.maxHeight - myGamePiece.minHeight + 1) + myGamePiece.minHeight);
     myObstacles.push(new Component("tbar", 40, height, "images/tp.png", x, 0, "image"));
     myObstacles.push(new Component("bbar", 40, y - height - myGamePiece.gapHeight, "images/bp.png", x, height + myGamePiece.gapHeight, "image"));
   }
 
   if (jumpMode == false) {
     if (myGamePiece.action == 1) {
-      moveUp();
+      linearJumpActionUp();
     }
     else {
-      moveDown();
+      linearJumpActionDown();
     }
   } else {
     if (myGamePiece.action == 1) {
-      moveup();
+      standardJumpAction();
     }
   }
   setGamePieceSpeed();
@@ -494,6 +530,8 @@ function updateGameArea() {
     if (myObstacles[i].x + myObstacles[i].width == myGamePiece.x) {
       // deadObstacles.push(myObstacles[i]) // add to passed array
       myGamePiece.score++;
+      myGamePiece.totalScoreWins++;
+      myGamePiece.totalScorePercent = (myGamePiece.totalScoreWins / (myGamePiece.totalScoreWins + myGamePiece.round)) * 100;
       if (myGamePiece.score > myGamePiece.maxScore) {myGamePiece.maxScore = myGamePiece.score}
       deadObstacles.push(new Component("tbar", 40, myObstacles[i].height, "images/tp.png", myObstacles[i].x, myObstacles[i].y, "image"));
       deadObstacles.push(new Component("bbar", 40, myObstacles[i+1].height, "images/bp.png", myObstacles[i].x, myObstacles[i+1].y, "image"));
@@ -523,6 +561,7 @@ function updateGameArea() {
   }
 
   // setGamePieceSpeed();
+  scorePercent.text = "%: " + myGamePiece.totalScorePercent;
   myScore.text = "SCORE: " + myGamePiece.score;
   roundsPlayed.text = "ROUND: " + myGamePiece.round;
   maxScore.text = "MAX SCORE: " + myGamePiece.maxScore;
@@ -533,8 +572,10 @@ function updateGameArea() {
   myScore.update();
   maxScore.update();
   roundsPlayed.update();
+  scorePercent.update();
   myGamePiece.newPos();
   myGamePiece.update();
+
 }
 
 
@@ -554,18 +595,18 @@ function everyinterval(n) {
   return false;
 }
 
-function moveup() {
+function standardJumpAction() {
 
   if (myGamePiece.speedY < myGamePiece.gravitySpeed && !humanMode) return;
   myGamePiece.speedY -= 4 * myGamePiece.jumpMultiplier;
   myGamePiece.newPos();
 }
 
-function moveUp() {
+function linearJumpActionUp() {
   myGamePiece.speedY = -1 * speedUp;
   myGamePiece.newPos();
 }
-function moveDown() {
+function linearJumpActionDown() {
   myGamePiece.speedY = speedDown;
   myGamePiece.newPos();
 }
