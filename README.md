@@ -279,15 +279,19 @@ Analytics Vidhya, 27 Apr. 2020, [http://www.analyticsvidhya.com/blog/2019/04/int
 learning-python/.
 
 ![picture](https://github.com/jessepelzar/Flappy_Bird_RL/blob/master/Documentation/images/figure5.png)
+```
 Figure 5: Gamma Range Values
-
+```
 ![picture](https://github.com/jessepelzar/Flappy_Bird_RL/blob/master/Documentation/images/figure6.png)
+```
 Figure 6: Gamma Range Values
-
+```
 ![picture](https://github.com/jessepelzar/Flappy_Bird_RL/blob/master/Documentation/images/figure7.png)
+```
 Figure 7: Gamma Range Values
-
+```
 ![picture](https://github.com/jessepelzar/Flappy_Bird_RL/blob/master/Documentation/images/figure8.png)
+```
 Figure 8: Gamma Range Values
-
+```
 
